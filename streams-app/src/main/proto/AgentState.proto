@@ -1,0 +1,85 @@
+syntax = "proto3";
+import "google/protobuf/timestamp.proto";
+
+package com.nice.intech;
+
+message AgentStateChangeEvent {
+  google.protobuf.Timestamp EventTimestamp = 1;
+  AgentStateEventIndicator EventIndicator = 2;
+  int32 AgentId = 3;
+
+  string AgentSessionUUID = 10;
+  int64 EventSequence = 11;
+  AgentState AgentState = 12;
+}
+
+message AgentSession {
+  string AgentSessionUUID = 1;
+  int32 AgentId = 2;
+  google.protobuf.Timestamp StartTimestamp = 3;
+  google.protobuf.Timestamp EndTimestamp = 4;
+
+  // Summary data
+  int64 AgentSessionDurationSeconds = 20;
+  int64 AvailableSeconds = 21;
+  int64 WorkingContactsSeconds = 22;
+  int64 UnavailableSeconds = 23;
+  int64 SystemSeconds = 24;
+}
+
+message AgentActivity {
+  string AgentActivityUUID = 1;
+  string AgentSessionUUID = 2;
+  int64 AgentActivitySequence = 3;
+  int32 AgentId = 4;
+  AgentState AgentState = 5;
+  google.protobuf.Timestamp StartTimestamp = 6;
+  google.protobuf.Timestamp EndTimestamp = 7;
+  string WorkingAgentContactUUID = 8;
+
+  int64 AgentActivityDurationSeconds = 10;
+}
+
+message TableRowAgentSession {
+  repeated AgentStateChangeEvent OrderedEvents = 1;
+  AgentSession Session = 2;
+  repeated AgentActivity Activities = 3;
+}
+
+message AgentProfile {
+  int32 AgentId = 1;
+  string FirstName = 2;
+  string LastName = 3;
+  string UserName = 4;
+  string Email = 5;
+  string Department = 6;
+}
+
+message AgentSessionHydrated {
+  AgentSession AgentSession = 1;
+  AgentProfile AgentProfile = 2;
+}
+
+enum AgentStateEventIndicator {
+  UNCHANGED = 0;
+  STATE_CHANGE = 1;
+  SESSION_STARTED = 2;
+  SESSION_ENDED = 3;
+  CONTACT_STARTED = 4;
+  ACW_STARTED = 5;
+  ACW_ENDED = 6;
+  CONTACT_ENDED = 7;
+  CONTACT_RESKILLED = 8;
+}
+
+enum AgentState {
+  LOGGED_OUT = 0;
+  AVAILABLE = 1;
+  UNAVAILABLE = 2;
+  INBOUND_CONTACT = 3;
+  OUTBOUND_CONTACT = 4;
+  INBOUND_CONSULT = 5;
+  OUTBOUND_CONSULT = 6;
+  DIALER = 7;
+  LOGGED_IN = 8;
+}

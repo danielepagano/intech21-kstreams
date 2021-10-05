@@ -1,0 +1,37 @@
+spring:
+  main:
+    banner-mode: off
+  kafka:
+    streams:
+      bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVER:localhost:9092}
+      application-id: intech21-streams-v1.0.0
+      properties:
+        default:
+          deserialization:
+            exception:
+              handler: com.nice.intech21.LoggingDeserializationExceptionHandler
+          key:
+            serde: org.apache.kafka.common.serialization.Serdes$IntegerSerde
+          value:
+            serde: com.nice.intech21.serde.AgentStateChangeEventSerde
+      security:
+        protocol: SSL
+      replication-factor: -1
+    producer:
+      acks: all
+app:
+  agent-state:
+    topicPrefix: ${KAFKA_TOPIC_PREFIX:}
+    inputTopic: ${AGENT_STATE_INPUT_TOPIC:agent_reporting}
+
+    tableAgentSession: ${AGENT_STATE_TABLE_AGENT_SESSION:table_agent_session}
+
+    outputTopicsFactAgentSession: ${AGENT_STATE_OUT_TOPIC_AGENT_SESSION:agent_session}
+    outputTopicsFactAgentActivity: ${AGENT_STATE_OUT_TOPIC_AGENT_ACTIVITY:agent_activity}
+
+logging:
+  level:
+    com:
+      nice: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSS, UTC} [%t] %-5level %logger{36} - %msg%n"
