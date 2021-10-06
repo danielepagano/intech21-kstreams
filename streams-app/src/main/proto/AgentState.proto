@@ -35,7 +35,6 @@ message AgentActivity {
   AgentState AgentState = 5;
   google.protobuf.Timestamp StartTimestamp = 6;
   google.protobuf.Timestamp EndTimestamp = 7;
-  string WorkingAgentContactUUID = 8;
 
   int64 AgentActivityDurationSeconds = 10;
 }
@@ -44,20 +43,6 @@ message TableRowAgentSession {
   repeated AgentStateChangeEvent OrderedEvents = 1;
   AgentSession Session = 2;
   repeated AgentActivity Activities = 3;
-}
-
-message AgentProfile {
-  int32 AgentId = 1;
-  string FirstName = 2;
-  string LastName = 3;
-  string UserName = 4;
-  string Email = 5;
-  string Department = 6;
-}
-
-message AgentSessionHydrated {
-  AgentSession AgentSession = 1;
-  AgentProfile AgentProfile = 2;
 }
 
 enum AgentStateEventIndicator {

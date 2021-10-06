@@ -30,14 +30,15 @@ public class AgentSessionTopology {
     private final StreamProcessingContext context;
 
     void processStream(KStream<String, AgentStateOuterClass.AgentStateChangeEvent> inputStream) {
-        // 1. Group events by session fact key, as that is our table row
+        // 1. Group events by session key, as that is our table row
         final KGroupedStream<String, AgentStateOuterClass.AgentStateChangeEvent> inputBySessionKey = inputStream
                 .groupBy((key, value) -> value.getAgentSessionUUID(),
                         Grouped.with(Serdes.String(), AgentStateStreamProcessor.SERDE_EVT_AGENT_STATE_CHANGE));
 
         // 2. Update the table with the incoming events
         final KTable<String, AgentStateOuterClass.TableRowAgentSession> agentSessionTable = inputBySessionKey
-                .aggregate(AgentStateOuterClass.TableRowAgentSession::getDefaultInstance, this::accumulateTableRow, TopologyHelper.getSessionTableStore(context.getConfig()));
+                .aggregate(AgentStateOuterClass.TableRowAgentSession::getDefaultInstance, this::accumulateTableRow,
+                        TopologyHelper.getSessionTableStore(context.getConfig()));
 
         // 3. Produce any session fact
         agentSessionTable.toStream()
@@ -53,7 +54,8 @@ public class AgentSessionTopology {
         agentSessionTable.filter((k, v) -> v.getSession().hasEndTimestamp()).mapValues(v -> null);
     }
 
-    AgentStateOuterClass.TableRowAgentSession accumulateTableRow(String key, AgentStateOuterClass.AgentStateChangeEvent event, AgentStateOuterClass.TableRowAgentSession row) {
+    AgentStateOuterClass.TableRowAgentSession accumulateTableRow(String key, AgentStateOuterClass.AgentStateChangeEvent event,
+                                                                 AgentStateOuterClass.TableRowAgentSession row) {
         final AgentStateOuterClass.TableRowAgentSession.Builder rowBuilder = AgentStateOuterClass.TableRowAgentSession.newBuilder(row);
 
         // Ingest the event in the table
