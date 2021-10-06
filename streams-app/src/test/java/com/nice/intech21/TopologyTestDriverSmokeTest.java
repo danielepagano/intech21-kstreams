@@ -13,8 +13,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.kafka.config.KafkaStreamsConfiguration;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 import java.util.UUID;
 
 import static com.nice.intech21.AgentStateStreamProcessor.SERDE_EVT_AGENT_STATE_CHANGE;
@@ -22,11 +24,12 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
 class TopologyTestDriverSmokeTest {
-    private static final long BASE_SEC = 1234567890L; // About 2019-02-13
-    private static final long FIRST_SEQ = 101L;
+    private static final Random RANDOM = new Random();
+    private static final long BASE_SEC = Instant.now().getEpochSecond();
+    private static final long FIRST_SEQ = RANDOM.nextInt(1000);
     private static final String SESSION_FACT_UUID = UUID.randomUUID().toString();
     private static final Serde<String> SERDE_STRING = new Serdes.StringSerde();
-    private static final int AGENT_ID = 123;
+    private static final int AGENT_ID = RANDOM.nextInt(1000);
 
     private TopologyTestDriver testDriver;
     private TestInputTopic<String, AgentStateOuterClass.AgentStateChangeEvent> inputTopic;
@@ -79,8 +82,7 @@ class TopologyTestDriverSmokeTest {
         final AgentStateOuterClass.AgentStateChangeEvent loginEvent = getEventBuilder(++mainSeq,
                 AgentStateOuterClass.AgentStateEventIndicator.SESSION_STARTED, AgentStateOuterClass.AgentState.LOGGED_IN)
                 .build();
-        final String loginJson = new String(new AgentStateChangeEventJsonSerializer().serialize("", loginEvent));
-        inputTopic.pipeInput(loginEvent);
+        sendEvent(loginEvent);
 
         // <- We should have a started session fact and a started activity fact
         final KeyValue<String, AgentStateOuterClass.AgentSession> sessionStarted = outputTopicFactAgentSession.readKeyValue();
@@ -90,7 +92,7 @@ class TopologyTestDriverSmokeTest {
         assertThat(sessionStarted.value.getStartTimestamp(), equalTo(loginEvent.getEventTimestamp()));
 
         final KeyValue<String, AgentStateOuterClass.AgentActivity> activityLoginStarted = outputTopicFactAgentActivity.readKeyValue();
-        assertThat(activityLoginStarted.key, equalTo(SESSION_FACT_UUID));
+        assertThat(activityLoginStarted.key, equalTo(activityLoginStarted.value.getAgentActivityUUID()));
         assertThat(activityLoginStarted.value.getAgentSessionUUID(), equalTo(SESSION_FACT_UUID));
         assertThat(activityLoginStarted.value.getAgentId(), equalTo(loginEvent.getAgentId()));
         assertThat(activityLoginStarted.value.getStartTimestamp(), equalTo(loginEvent.getEventTimestamp()));
@@ -99,7 +101,7 @@ class TopologyTestDriverSmokeTest {
         // -> Agent goes available
         final AgentStateOuterClass.AgentStateChangeEvent availableEvent = getEventBuilder(++mainSeq, AgentStateOuterClass.AgentStateEventIndicator.STATE_CHANGE,
                 AgentStateOuterClass.AgentState.AVAILABLE).build();
-        inputTopic.pipeInput(availableEvent);
+        sendEvent(availableEvent);
 
         // <- We should have a completed logged in activity and a started available activity
         final AgentStateOuterClass.AgentActivity activityLoginCompleted = outputTopicFactAgentActivity.readValue();
@@ -114,7 +116,7 @@ class TopologyTestDriverSmokeTest {
         // -> Agent goes unavailable
         final AgentStateOuterClass.AgentStateChangeEvent unavailableEvent = getEventBuilder(++mainSeq, AgentStateOuterClass.AgentStateEventIndicator.STATE_CHANGE,
                 AgentStateOuterClass.AgentState.UNAVAILABLE).build();
-        inputTopic.pipeInput(unavailableEvent);
+        sendEvent(unavailableEvent);
 
         final AgentStateOuterClass.AgentActivity activityAvailableCompleted = outputTopicFactAgentActivity.readValue();
         assertThat(activityAvailableCompleted.getStartTimestamp(), equalTo(availableEvent.getEventTimestamp()));
@@ -128,7 +130,7 @@ class TopologyTestDriverSmokeTest {
         // -> Agent logs out
         final AgentStateOuterClass.AgentStateChangeEvent logoutEvent = getEventBuilder(++mainSeq, AgentStateOuterClass.AgentStateEventIndicator.SESSION_ENDED,
                 AgentStateOuterClass.AgentState.LOGGED_OUT).build();
-        inputTopic.pipeInput(logoutEvent);
+        sendEvent(logoutEvent);
 
         // <- We should have a completed session and completed last activity
         final KeyValue<String, AgentStateOuterClass.AgentSession> sessionEnded = outputTopicFactAgentSession.readKeyValue();
@@ -147,6 +149,12 @@ class TopologyTestDriverSmokeTest {
         assertThat(activityUnavailableCompleted.getStartTimestamp(), equalTo(unavailableEvent.getEventTimestamp()));
         assertThat(activityUnavailableCompleted.getAgentState(), equalTo(unavailableEvent.getAgentState()));
         assertThat(activityUnavailableCompleted.getEndTimestamp(), equalTo(logoutEvent.getEventTimestamp()));
+    }
+
+    private void sendEvent(AgentStateOuterClass.AgentStateChangeEvent loginEvent) {
+        inputTopic.pipeInput(loginEvent);
+        final String eventJson = new String(new AgentStateChangeEventJsonSerializer().serialize("", loginEvent));
+        System.err.println(eventJson);
     }
 
     @NotNull

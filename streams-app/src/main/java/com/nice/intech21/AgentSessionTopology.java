@@ -14,6 +14,7 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.common.utils.Bytes;
+import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.kstream.*;
 import org.apache.kafka.streams.state.KeyValueStore;
 import org.springframework.stereotype.Component;
@@ -49,7 +50,7 @@ public class AgentSessionTopology {
 
         // 4. Produce any activity facts
         agentSessionTable.toStream()
-                .flatMapValues(AgentSessionTopology::emitAgentActivityFacts)
+                .flatMap(AgentSessionTopology::emitAgentActivityFacts)
                 .to(context.getConfig().getOutputTopicsFactAgentActivity(), Produced.with(Serdes.String(), SERDE_FACT_AGENT_ACTIVITY_JSON));
 
         // 6. Delete completed table rows
@@ -76,20 +77,27 @@ public class AgentSessionTopology {
         return isBoundaryEvent ? Collections.singletonList(row.getSession()) : Collections.emptyList();
     }
 
-    static Iterable<AgentStateOuterClass.AgentActivity> emitAgentActivityFacts(String sessionKey, AgentStateOuterClass.TableRowAgentSession row) {
+    static Iterable<KeyValue<String, AgentStateOuterClass.AgentActivity>> emitAgentActivityFacts(String sessionKey, AgentStateOuterClass.TableRowAgentSession row) {
         final AgentStateOuterClass.AgentStateChangeEvent lastEvent = row.getOrderedEventsList().get(row.getOrderedEventsCount() - 1);
 
         // On login and logout, send the latest activity (first one, or finished last one)
         final int activitiesCount = row.getActivitiesCount();
         if (activitiesCount < 1) return Collections.emptyList();
-        if (activitiesCount == 1) return Collections.singletonList(row.getActivitiesList().get(0));
+        if (activitiesCount == 1) {
+            final AgentStateOuterClass.AgentActivity activity = row.getActivitiesList().get(0);
+            return Collections.singletonList(KeyValue.pair(activity.getAgentActivityUUID(), activity));
+        }
         if (lastEvent.getEventIndicator() == AgentStateOuterClass.AgentStateEventIndicator.SESSION_ENDED) {
-            return Collections.singletonList(row.getActivitiesList().get(row.getActivitiesCount() - 1));
+            final AgentStateOuterClass.AgentActivity last = row.getActivitiesList().get(row.getActivitiesCount() - 1);
+            return Collections.singletonList(KeyValue.pair(last.getAgentActivityUUID(), last));
         }
 
         // Return previous completed one and current started one
-        return ImmutableList.of(row.getActivitiesList().get(row.getActivitiesCount() - 2),
-                row.getActivitiesList().get(row.getActivitiesCount() - 1));
+        final AgentStateOuterClass.AgentActivity last = row.getActivitiesList().get(row.getActivitiesCount() - 1);
+        final AgentStateOuterClass.AgentActivity penultimate = row.getActivitiesList().get(row.getActivitiesCount() - 2);
+        return ImmutableList.of(
+                KeyValue.pair(penultimate.getAgentActivityUUID(), penultimate),
+                KeyValue.pair(last.getAgentActivityUUID(), last));
     }
 
     static void updateAgentSessionFromEvent(AgentStateOuterClass.AgentStateChangeEvent event, AgentStateOuterClass.TableRowAgentSession.Builder rowBuilder) {
