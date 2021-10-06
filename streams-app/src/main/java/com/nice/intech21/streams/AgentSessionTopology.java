@@ -1,4 +1,4 @@
-package com.nice.intech21;
+package com.nice.intech21.streams;
 
 
 import com.google.common.collect.ImmutableList;
@@ -6,6 +6,7 @@ import com.google.protobuf.Duration;
 import com.google.protobuf.util.Durations;
 import com.google.protobuf.util.Timestamps;
 import com.nice.intech.AgentStateOuterClass;
+import com.nice.intech21.StreamProcessingContext;
 import com.nice.intech21.serde.FactAgentActivityJsonSerde;
 import com.nice.intech21.serde.FactAgentSessionJsonSerde;
 import com.nice.intech21.serde.TableRowAgentSessionSerde;

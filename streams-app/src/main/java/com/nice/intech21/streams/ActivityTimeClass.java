@@ -1,4 +1,4 @@
-package com.nice.intech21;
+package com.nice.intech21.streams;
 
 
 import com.nice.intech.AgentStateOuterClass;

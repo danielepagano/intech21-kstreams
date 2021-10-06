@@ -1,4 +1,4 @@
-package com.nice.intech21;
+package com.nice.intech21.streams;
 
 import lombok.Getter;
 import lombok.Setter;

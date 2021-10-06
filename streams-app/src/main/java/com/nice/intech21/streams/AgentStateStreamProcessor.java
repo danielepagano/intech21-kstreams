@@ -1,6 +1,7 @@
-package com.nice.intech21;
+package com.nice.intech21.streams;
 
 import com.nice.intech.AgentStateOuterClass;
+import com.nice.intech21.StreamProcessingContext;
 import com.nice.intech21.serde.AgentStateChangeEventJsonSerde;
 import lombok.AllArgsConstructor;
 import lombok.Getter;

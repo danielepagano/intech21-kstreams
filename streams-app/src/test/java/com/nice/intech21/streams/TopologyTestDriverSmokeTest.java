@@ -1,7 +1,8 @@
-package com.nice.intech21;
+package com.nice.intech21.streams;
 
 import com.google.protobuf.Timestamp;
 import com.nice.intech.AgentStateOuterClass;
+import com.nice.intech21.StreamProcessingContext;
 import com.nice.intech21.serde.AgentStateChangeEventJsonSerializer;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
@@ -19,7 +20,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
 
-import static com.nice.intech21.AgentStateStreamProcessor.SERDE_EVT_AGENT_STATE_CHANGE;
+import static com.nice.intech21.streams.AgentStateStreamProcessor.SERDE_EVT_AGENT_STATE_CHANGE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
