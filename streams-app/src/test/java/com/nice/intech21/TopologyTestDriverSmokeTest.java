@@ -2,6 +2,7 @@ package com.nice.intech21;
 
 import com.google.protobuf.Timestamp;
 import com.nice.intech.AgentStateOuterClass;
+import com.nice.intech21.serde.AgentStateChangeEventJsonSerializer;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.*;
@@ -24,12 +25,11 @@ class TopologyTestDriverSmokeTest {
     private static final long BASE_SEC = 1234567890L; // About 2019-02-13
     private static final long FIRST_SEQ = 101L;
     private static final String SESSION_FACT_UUID = UUID.randomUUID().toString();
-    private static final Serde<Integer> SERDE_INT = new Serdes.IntegerSerde();
     private static final Serde<String> SERDE_STRING = new Serdes.StringSerde();
     private static final int AGENT_ID = 123;
 
     private TopologyTestDriver testDriver;
-    private TestInputTopic<Integer, AgentStateOuterClass.AgentStateChangeEvent> inputTopic;
+    private TestInputTopic<String, AgentStateOuterClass.AgentStateChangeEvent> inputTopic;
     private TestOutputTopic<String, AgentStateOuterClass.AgentSession> outputTopicFactAgentSession;
     private TestOutputTopic<String, AgentStateOuterClass.AgentActivity> outputTopicFactAgentActivity;
     private TestOutputTopic<String, AgentStateOuterClass.TableRowAgentSession> tableAgentSession;
@@ -38,7 +38,7 @@ class TopologyTestDriverSmokeTest {
         Map<String, Object> props = new HashMap<>();
         props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
         props.put(StreamsConfig.APPLICATION_ID_CONFIG, "intech21-streams-smoke-test");
-        props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.Integer().getClass().getName());
+        props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass().getName());
         props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, SERDE_EVT_AGENT_STATE_CHANGE.getClass().getName());
         return new KafkaStreamsConfiguration(props);
     }
@@ -55,7 +55,7 @@ class TopologyTestDriverSmokeTest {
 
         // setup test topics (input, tables, and output)
         inputTopic = testDriver.createInputTopic(config.getInputTopic(),
-                SERDE_INT.serializer(), SERDE_EVT_AGENT_STATE_CHANGE.serializer());
+                SERDE_STRING.serializer(), SERDE_EVT_AGENT_STATE_CHANGE.serializer());
 
         tableAgentSession = testDriver.createOutputTopic(config.getTableAgentSession(),
                 SERDE_STRING.deserializer(), AgentSessionTopology.SERDE_TABLE_ROW_AGENT_SESSION.deserializer());
@@ -79,6 +79,7 @@ class TopologyTestDriverSmokeTest {
         final AgentStateOuterClass.AgentStateChangeEvent loginEvent = getEventBuilder(++mainSeq,
                 AgentStateOuterClass.AgentStateEventIndicator.SESSION_STARTED, AgentStateOuterClass.AgentState.LOGGED_IN)
                 .build();
+        final String loginJson = new String(new AgentStateChangeEventJsonSerializer().serialize("", loginEvent));
         inputTopic.pipeInput(loginEvent);
 
         // <- We should have a started session fact and a started activity fact

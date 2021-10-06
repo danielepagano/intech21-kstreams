@@ -20,7 +20,7 @@ spring:
             exception:
               handler: com.nice.intech21.LoggingDeserializationExceptionHandler
           key:
-            serde: org.apache.kafka.common.serialization.Serdes$IntegerSerde
+            serde: org.apache.kafka.common.serialization.Serdes$StringSerde
           value:
             serde: com.nice.intech21.serde.AgentStateChangeEventJsonSerde
       security:

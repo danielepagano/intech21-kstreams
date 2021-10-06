@@ -26,8 +26,8 @@ public class AgentStateStreamProcessor {
     private final AgentSessionTopology agentSessionTopology;
 
     @Bean
-    public KStream<Integer, AgentStateOuterClass.AgentStateChangeEvent> processKStream(StreamsBuilder kStreamBuilder) {
-        final KStream<Integer, AgentStateOuterClass.AgentStateChangeEvent> eventStream = kStreamBuilder.stream(processingContext.getConfig().getInputTopic());
+    public KStream<String, AgentStateOuterClass.AgentStateChangeEvent> processKStream(StreamsBuilder kStreamBuilder) {
+        final KStream<String, AgentStateOuterClass.AgentStateChangeEvent> eventStream = kStreamBuilder.stream(processingContext.getConfig().getInputTopic());
         logger.info("Input Topic {}", processingContext.getConfig().getInputTopic());
 
         agentSessionTopology.processStream(eventStream);

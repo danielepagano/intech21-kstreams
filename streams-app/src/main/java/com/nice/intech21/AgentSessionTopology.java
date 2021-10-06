@@ -32,7 +32,7 @@ public class AgentSessionTopology {
 
     private final StreamProcessingContext context;
 
-    void processStream(KStream<Integer, AgentStateOuterClass.AgentStateChangeEvent> inputStream) {
+    void processStream(KStream<String, AgentStateOuterClass.AgentStateChangeEvent> inputStream) {
         // 1. Group events by session fact key, as that is our table row
         final KGroupedStream<String, AgentStateOuterClass.AgentStateChangeEvent> inputBySessionKey = inputStream
                 .groupBy((key, value) -> value.getAgentSessionUUID(),
