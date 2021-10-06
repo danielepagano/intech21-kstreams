@@ -1,6 +1,5 @@
 package com.nice.intech21.streams;
 
-
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Duration;
 import com.google.protobuf.util.Durations;
@@ -9,15 +8,12 @@ import com.nice.intech.AgentStateOuterClass;
 import com.nice.intech21.StreamProcessingContext;
 import com.nice.intech21.serde.FactAgentActivityJsonSerde;
 import com.nice.intech21.serde.FactAgentSessionJsonSerde;
-import com.nice.intech21.serde.TableRowAgentSessionSerde;
 import lombok.AllArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
-import org.apache.kafka.common.utils.Bytes;
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.kstream.*;
-import org.apache.kafka.streams.state.KeyValueStore;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
@@ -28,7 +24,6 @@ import java.util.UUID;
 @AllArgsConstructor
 @Component
 public class AgentSessionTopology {
-    public static final Serde<AgentStateOuterClass.TableRowAgentSession> SERDE_TABLE_ROW_AGENT_SESSION = new TableRowAgentSessionSerde();
     public static final Serde<AgentStateOuterClass.AgentSession> SERDE_FACT_AGENT_SESSION_JSON = new FactAgentSessionJsonSerde();
     public static final Serde<AgentStateOuterClass.AgentActivity> SERDE_FACT_AGENT_ACTIVITY_JSON = new FactAgentActivityJsonSerde();
 
@@ -42,7 +37,7 @@ public class AgentSessionTopology {
 
         // 2. Update the table with the incoming events
         final KTable<String, AgentStateOuterClass.TableRowAgentSession> agentSessionTable = inputBySessionKey
-                .aggregate(AgentStateOuterClass.TableRowAgentSession::getDefaultInstance, this::accumulateTableRow, getSessionTableStore());
+                .aggregate(AgentStateOuterClass.TableRowAgentSession::getDefaultInstance, this::accumulateTableRow, TopologyHelper.getSessionTableStore(context.getConfig()));
 
         // 3. Produce any session fact
         agentSessionTable.toStream()
@@ -70,37 +65,6 @@ public class AgentSessionTopology {
         return rowBuilder.build();
     }
 
-    static Iterable<AgentStateOuterClass.AgentSession> emitAgentSessionFacts(String sessionKey, AgentStateOuterClass.TableRowAgentSession row) {
-        // Emit session on start and end
-        final AgentStateOuterClass.AgentStateChangeEvent lastEvent = row.getOrderedEventsList().get(row.getOrderedEventsCount() - 1);
-        final boolean isBoundaryEvent = lastEvent.getEventIndicator() == AgentStateOuterClass.AgentStateEventIndicator.SESSION_STARTED ||
-                lastEvent.getEventIndicator() == AgentStateOuterClass.AgentStateEventIndicator.SESSION_ENDED;
-        return isBoundaryEvent ? Collections.singletonList(row.getSession()) : Collections.emptyList();
-    }
-
-    static Iterable<KeyValue<String, AgentStateOuterClass.AgentActivity>> emitAgentActivityFacts(String sessionKey, AgentStateOuterClass.TableRowAgentSession row) {
-        final AgentStateOuterClass.AgentStateChangeEvent lastEvent = row.getOrderedEventsList().get(row.getOrderedEventsCount() - 1);
-
-        // On login and logout, send the latest activity (first one, or finished last one)
-        final int activitiesCount = row.getActivitiesCount();
-        if (activitiesCount < 1) return Collections.emptyList();
-        if (activitiesCount == 1) {
-            final AgentStateOuterClass.AgentActivity activity = row.getActivitiesList().get(0);
-            return Collections.singletonList(KeyValue.pair(activity.getAgentActivityUUID(), activity));
-        }
-        if (lastEvent.getEventIndicator() == AgentStateOuterClass.AgentStateEventIndicator.SESSION_ENDED) {
-            final AgentStateOuterClass.AgentActivity last = row.getActivitiesList().get(row.getActivitiesCount() - 1);
-            return Collections.singletonList(KeyValue.pair(last.getAgentActivityUUID(), last));
-        }
-
-        // Return previous completed one and current started one
-        final AgentStateOuterClass.AgentActivity last = row.getActivitiesList().get(row.getActivitiesCount() - 1);
-        final AgentStateOuterClass.AgentActivity penultimate = row.getActivitiesList().get(row.getActivitiesCount() - 2);
-        return ImmutableList.of(
-                KeyValue.pair(penultimate.getAgentActivityUUID(), penultimate),
-                KeyValue.pair(last.getAgentActivityUUID(), last));
-    }
-
     static void updateAgentSessionFromEvent(AgentStateOuterClass.AgentStateChangeEvent event, AgentStateOuterClass.TableRowAgentSession.Builder rowBuilder) {
         final AgentStateOuterClass.AgentSession.Builder builder = rowBuilder.getSessionBuilder();
 
@@ -117,13 +81,13 @@ public class AgentSessionTopology {
                 final Duration duration = Timestamps.between(builder.getStartTimestamp(), event.getEventTimestamp());
                 builder.setEndTimestamp(event.getEventTimestamp())
                         .setAgentSessionDurationSeconds(Math.round(Durations.toSecondsAsDouble(duration)))
-                        .setAvailableSeconds(sumActivityTimeByType(activities,
+                        .setAvailableSeconds(TopologyHelper.sumActivityTimeByType(activities,
                                 ActivityTimeClass.AVAILABLE))
-                        .setWorkingContactsSeconds(sumActivityTimeByType(activities,
+                        .setWorkingContactsSeconds(TopologyHelper.sumActivityTimeByType(activities,
                                 ActivityTimeClass.WORKING_CONTACTS))
-                        .setUnavailableSeconds(sumActivityTimeByType(activities,
+                        .setUnavailableSeconds(TopologyHelper.sumActivityTimeByType(activities,
                                 ActivityTimeClass.UNAVAILABLE))
-                        .setSystemSeconds(sumActivityTimeByType(activities,
+                        .setSystemSeconds(TopologyHelper.sumActivityTimeByType(activities,
                                 ActivityTimeClass.SYSTEM));
                 break;
             default:
@@ -166,19 +130,34 @@ public class AgentSessionTopology {
         }
     }
 
-    Materialized<String, AgentStateOuterClass.TableRowAgentSession, KeyValueStore<Bytes, byte[]>> getSessionTableStore() {
-        final Materialized<String, AgentStateOuterClass.TableRowAgentSession, KeyValueStore<Bytes, byte[]>> sessionTableStore =
-                Materialized.as(context.getConfig().getTableAgentSession());
-        sessionTableStore.withKeySerde(Serdes.String());
-        sessionTableStore.withValueSerde(SERDE_TABLE_ROW_AGENT_SESSION);
-        return sessionTableStore;
+    static Iterable<AgentStateOuterClass.AgentSession> emitAgentSessionFacts(String sessionKey, AgentStateOuterClass.TableRowAgentSession row) {
+        // Emit session on start and end
+        final AgentStateOuterClass.AgentStateChangeEvent lastEvent = row.getOrderedEventsList().get(row.getOrderedEventsCount() - 1);
+        final boolean isBoundaryEvent = lastEvent.getEventIndicator() == AgentStateOuterClass.AgentStateEventIndicator.SESSION_STARTED ||
+                lastEvent.getEventIndicator() == AgentStateOuterClass.AgentStateEventIndicator.SESSION_ENDED;
+        return isBoundaryEvent ? Collections.singletonList(row.getSession()) : Collections.emptyList();
     }
 
-    static long sumActivityTimeByType(List<AgentStateOuterClass.AgentActivity> activities, ActivityTimeClass timeClass) {
-        final Duration duration = activities.stream()
-                .filter(a -> ActivityTimeClass.classify(a.getAgentState()) == timeClass)
-                .map(a -> Timestamps.between(a.getStartTimestamp(), a.getEndTimestamp()))
-                .reduce(Durations.ZERO, Durations::add);
-        return Math.round(Durations.toSecondsAsDouble(duration));
+    static Iterable<KeyValue<String, AgentStateOuterClass.AgentActivity>> emitAgentActivityFacts(String sessionKey, AgentStateOuterClass.TableRowAgentSession row) {
+        final AgentStateOuterClass.AgentStateChangeEvent lastEvent = row.getOrderedEventsList().get(row.getOrderedEventsCount() - 1);
+
+        // On login and logout, send the latest activity (first one, or finished last one)
+        final int activitiesCount = row.getActivitiesCount();
+        if (activitiesCount < 1) return Collections.emptyList();
+        if (activitiesCount == 1) {
+            final AgentStateOuterClass.AgentActivity activity = row.getActivitiesList().get(0);
+            return Collections.singletonList(KeyValue.pair(activity.getAgentActivityUUID(), activity));
+        }
+        if (lastEvent.getEventIndicator() == AgentStateOuterClass.AgentStateEventIndicator.SESSION_ENDED) {
+            final AgentStateOuterClass.AgentActivity last = row.getActivitiesList().get(row.getActivitiesCount() - 1);
+            return Collections.singletonList(KeyValue.pair(last.getAgentActivityUUID(), last));
+        }
+
+        // Return previous completed one and current started one
+        final AgentStateOuterClass.AgentActivity last = row.getActivitiesList().get(row.getActivitiesCount() - 1);
+        final AgentStateOuterClass.AgentActivity penultimate = row.getActivitiesList().get(row.getActivitiesCount() - 2);
+        return ImmutableList.of(
+                KeyValue.pair(penultimate.getAgentActivityUUID(), penultimate),
+                KeyValue.pair(last.getAgentActivityUUID(), last));
     }
 }

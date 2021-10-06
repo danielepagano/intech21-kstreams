@@ -62,7 +62,7 @@ class TopologyTestDriverSmokeTest {
                 SERDE_STRING.serializer(), SERDE_EVT_AGENT_STATE_CHANGE.serializer());
 
         tableAgentSession = testDriver.createOutputTopic(config.getTableAgentSession(),
-                SERDE_STRING.deserializer(), AgentSessionTopology.SERDE_TABLE_ROW_AGENT_SESSION.deserializer());
+                SERDE_STRING.deserializer(), TopologyHelper.SERDE_TABLE_ROW_AGENT_SESSION.deserializer());
 
         outputTopicFactAgentSession = testDriver.createOutputTopic(config.getOutputTopicsFactAgentSession(),
                 SERDE_STRING.deserializer(), AgentSessionTopology.SERDE_FACT_AGENT_SESSION_JSON.deserializer());
