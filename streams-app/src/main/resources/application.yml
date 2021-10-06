@@ -2,8 +2,17 @@ spring:
   main:
     banner-mode: off
   kafka:
+    properties:
+      bootstrap:
+        servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+      security:
+        protocol: SASL_SSL
+      sasl:
+        mechanism: PLAIN
+        jaas:
+          config: ${KAFKA_JAAS_CONFIG:-}
     streams:
-      bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVER:localhost:9092}
+      bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
       application-id: intech21-streams-v1.0.0
       properties:
         default:
@@ -13,25 +22,18 @@ spring:
           key:
             serde: org.apache.kafka.common.serialization.Serdes$IntegerSerde
           value:
-            serde: com.nice.intech21.serde.AgentStateChangeEventSerde
+            serde: com.nice.intech21.serde.AgentStateChangeEventJsonSerde
       security:
-        protocol: SSL
+        protocol: SASL_SSL
       replication-factor: -1
     producer:
       acks: all
 app:
   agent-state:
     topicPrefix: ${KAFKA_TOPIC_PREFIX:}
-    inputTopic: ${AGENT_STATE_INPUT_TOPIC:agent_reporting}
+    inputTopic: ${AGENT_STATE_INPUT_TOPIC:agent_state}
 
     tableAgentSession: ${AGENT_STATE_TABLE_AGENT_SESSION:table_agent_session}
 
     outputTopicsFactAgentSession: ${AGENT_STATE_OUT_TOPIC_AGENT_SESSION:agent_session}
     outputTopicsFactAgentActivity: ${AGENT_STATE_OUT_TOPIC_AGENT_ACTIVITY:agent_activity}
-
-logging:
-  level:
-    com:
-      nice: INFO
-  pattern:
-    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSS, UTC} [%t] %-5level %logger{36} - %msg%n"

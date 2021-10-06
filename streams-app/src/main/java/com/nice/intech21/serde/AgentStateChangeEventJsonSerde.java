@@ -5,14 +5,14 @@ import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serializer;
 
-public class AgentStateChangeEventSerde implements Serde<AgentStateOuterClass.AgentStateChangeEvent> {
+public class AgentStateChangeEventJsonSerde implements Serde<AgentStateOuterClass.AgentStateChangeEvent> {
     @Override
     public Serializer<AgentStateOuterClass.AgentStateChangeEvent> serializer() {
-        return new AgentStateChangeEventSerializer();
+        return new AgentStateChangeEventJsonSerializer();
     }
 
     @Override
     public Deserializer<AgentStateOuterClass.AgentStateChangeEvent> deserializer() {
-        return new AgentStateChangeEventDeserializer();
+        return new AgentStateChangeEventJsonDeserializer();
     }
 }

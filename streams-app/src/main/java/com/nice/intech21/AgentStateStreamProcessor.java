@@ -1,7 +1,7 @@
 package com.nice.intech21;
 
 import com.nice.intech.AgentStateOuterClass;
-import com.nice.intech21.serde.AgentStateChangeEventSerde;
+import com.nice.intech21.serde.AgentStateChangeEventJsonSerde;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
@@ -19,7 +19,7 @@ import org.springframework.stereotype.Service;
 @EnableKafkaStreams
 @AllArgsConstructor
 public class AgentStateStreamProcessor {
-    public static final Serde<AgentStateOuterClass.AgentStateChangeEvent> SERDE_EVT_AGENT_STATE_CHANGE = new AgentStateChangeEventSerde();
+    public static final Serde<AgentStateOuterClass.AgentStateChangeEvent> SERDE_EVT_AGENT_STATE_CHANGE = new AgentStateChangeEventJsonSerde();
     private static final Logger logger = LoggerFactory.getLogger(AgentStateStreamProcessor.class);
     @Getter
     private final StreamProcessingContext processingContext;

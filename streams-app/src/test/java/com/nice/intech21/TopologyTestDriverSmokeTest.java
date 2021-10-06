@@ -1,11 +1,7 @@
-package com.nice.intech21.agentstate;
+package com.nice.intech21;
 
 import com.google.protobuf.Timestamp;
 import com.nice.intech.AgentStateOuterClass;
-import com.nice.intech21.AgentSessionTopology;
-import com.nice.intech21.AgentStateConfig;
-import com.nice.intech21.AgentStateStreamProcessor;
-import com.nice.intech21.StreamProcessingContext;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.*;
